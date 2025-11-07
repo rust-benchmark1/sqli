@@ -145,16 +145,10 @@ http://127.0.0.1:8080/secure/login
 **Example 1**  - CWE-89: SQL Injection (Supported)
 
 Expected to be detected.
-- **Source:** Line 16
+- **Source:** Line 13
 - **Sink:** Line 30
 
-**Example 2**  - CWE-89: SQL Injection (Supported)
-
-Expected to be detected.
-- **Source:** Line 18
-- **Sink:** Line 30
-
-**Example 3**  - CWE-209: Generation of Error Message Containing Sensitive Information (Not supported)
+**Example 2**  - CWE-209: Generation of Error Message Containing Sensitive Information (Not supported)
 - **Source:** Line 30
 - **Sink:** Line 37
 
