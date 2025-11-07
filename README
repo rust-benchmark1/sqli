@@ -1,0 +1,141 @@
+# SQL injection in Rust with Actix-Web 🦀
+
+SQL Injection (SQLi) Demonstration in Rust with Actix-Web
+This project demonstrates an SQL Injection vulnerability and its mitigation in a Rust web application built with the actix-web framework.  The application simulates a simple login system with two distinct endpoints: one that is vulnerable to SQLi and one that is secure.
+
+The lesson's goal is to show how improper handling of user input when generating SQL queries can lead to severe security flaws, such as authentication bypass or data destruction. We will then demonstrate the correct, secure method using parameterized queries.
+
+📋 Prerequisites
+Rust toolchain (via rustup)
+
+sqlx-cli for database migrations. Install it with:
+
+```bash
+cargo install sqlx-cli
+# or
+cargo install sqlx-cli --features sqlite --force
+```
+
+## ⚙️ Step-by-Step Setup
+
+Clone the Repository
+Configure Environment
+Create a .env file in the project's root directory and add the path to your database file:
+
+```bash
+DATABASE_URL=sqlite:database.db
+```
+
+Setup the Database
+Run the following sqlx commands to create the SQLite database file and run the migrations:
+
+```bash
+# This will create the `database.db` file
+sqlx database create
+
+# This will create the `credentials` table and insert a sample user
+sqlx migrate run
+# Run the Application
+# Start the actix-web server with cargo:
+```
+
+```bash
+cargo run
+# You should see the message: 🚀 Server started successfully at http://127.0.0.1:8080
+```
+
+💥 Demonstrating the Vulnerability (/vulnerable/login)
+The vulnerable endpoint constructs SQL queries by directly inserting user input into a string. This allows us to manipulate the query's logic.
+
+1. Successful Login (Normal Behavior)
+Let's start with a valid login attempt. The user 'user1@startup.io' has the password password123.
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+-d '{"email": "user1@startup.io", "password": "password123"}' \
+http://127.0.0.1:8080/vulnerable/login
+
+
+# Expected Output:
+# Vulnerable Login Successful!
+# on server side - Executing vulnerable query: SELECT * FROM credentials WHERE email = 'user1@startup.io' AND password = 'password123'
+```
+
+```bash
+# Now, let's try an incorrect password.
+# 2. Failed Login (Normal Behavior)
+curl -X POST -H "Content-Type: application/json" \
+-d '{"email": "user1@startup.io", "password": "wrongpassword"}' \
+http://127.0.0.1:8080/vulnerable/login
+
+# Expected Output:
+
+# Vulnerable Login Failed: Invalid credentials.
+
+```
+
+```bash
+# 3. Causing a SQL Error
+# Let's inject a single quote (') to break the SQL syntax. This confirms the application is vulnerable. 
+curl -X POST -H "Content-Type: application/json" \
+-d "{\"email\": \"user1@startup.io\", \"password\": \"evil'password\"}" \
+http://127.0.0.1:8080/vulnerable/login
+
+# Expected Output (or similar):
+# Database error: ... near "password'": syntax error
+# This error message from the database confirms that our input was directly included in the query. 
+
+# on server side - Executing vulnerable query: SELECT * FROM credentials WHERE email = 'user1@startup.io' AND password = 'evil'password'
+```
+
+4. Bypassing Authentication
+Now for the classic attack. We inject a payload that makes the 
+
+WHERE clause always true.
+The password payload is: anything' OR 1=1; --
+
+The resulting query becomes:
+SELECT * FROM credentials WHERE email = 'user1@startup.io' AND password = 'anything' OR 1=1; --'
+
+The OR 1=1 makes the condition true, and -- comments out the rest of the original query, successfully bypassing the password check. 
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+-d "{\"email\": \"user1@startup.io\", \"password\": \"anything' OR 1=1; --\"}" \
+http://127.0.0.1:8080/vulnerable/login
+
+# Expected Output:
+
+# Vulnerable Login Successful!
+# Congratulations, you've just hacked the application! 
+# server side msg: Executing vulnerable query: SELECT * FROM credentials WHERE email = 'user1@startup.io' AND password = 'anything' OR 1=1; --'
+```
+
+🛡️ Demonstrating the Mitigation (/secure/login)
+The secure endpoint uses parameterized queries. The database driver treats user input as literal data, never as executable code, which neutralizes the attack. 
+
+1. Successful Login (Normal Behavior)
+A correct login still works as expected.
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+-d "{\"email\": \"user1@startup.io\", \"password\": \"password123\"}" \
+http://127.0.0.1:8080/secure/login
+
+# Expected Output:
+# Secure Login Successful!
+```
+
+```bash
+# 2. Failed Login with Malicious Payload
+# Now, let's try the same authentication bypass payload on the secure endpoint.
+
+curl -X POST -H "Content-Type: application/json" \
+-d "{\"email\": \"user1@startup.io\", \"password\": \"anything' OR 1=1; --\"}" \
+http://127.0.0.1:8080/secure/login
+
+# Expected Output:
+# Secure Login Failed: Invalid credentials.
+# Why did it fail?
+# The secure handler doesn't inject the string. Instead, it asks the database to find a user where the email is user1@startup.io and the password is the literal string anything' OR 1=1; --.  Since no user has this exact password, the login correctly fails. This demonstrates that parameterized queries are an effective defense against SQL Injection.
+```
