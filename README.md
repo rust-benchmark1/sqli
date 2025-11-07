@@ -139,3 +139,23 @@ http://127.0.0.1:8080/secure/login
 # Why did it fail?
 # The secure handler doesn't inject the string. Instead, it asks the database to find a user where the email is user1@startup.io and the password is the literal string anything' OR 1=1; --.  Since no user has this exact password, the login correctly fails. This demonstrates that parameterized queries are an effective defense against SQL Injection.
 ```
+# Vulnerabilities Overview
+
+## /src/handlers.rs
+**Example 1**  - CWE-89: SQL Injection (Supported)
+
+Expected to be detected.
+- **Source:** Line 16
+- **Sink:** Line 30
+
+**Example 2**  - CWE-89: SQL Injection (Supported)
+
+Expected to be detected.
+- **Source:** Line 18
+- **Sink:** Line 30
+
+**Example 3**  - CWE-209: Generation of Error Message Containing Sensitive Information (Not supported)
+- **Source:** Line 30
+- **Sink:** Line 37
+
+---
